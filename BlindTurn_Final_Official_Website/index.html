@@ -1,0 +1,2267 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="BLINDTURN Smart Blind-Turn Vehicle Safety System: an ESP32 and ultrasonic-sensor ECS engineering prototype with a live telemetry dashboard, alerts, system information and user manual.">
+
+<title>BlindTurn Safety Console | ECS Smart Road Safety</title>
+
+<style>
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+
+    margin: 0;
+
+    background: #071018;
+
+    color: #eaf4ff;
+
+    font-family:
+        Arial,
+        Helvetica,
+        sans-serif;
+}
+
+header {
+
+    padding: 20px 25px;
+
+    background: #0a151f;
+
+    border-bottom:
+        1px solid #263746;
+}
+
+header h1 {
+
+    margin: 0;
+
+    font-size: 25px;
+
+    letter-spacing: 1px;
+}
+
+header p {
+
+    margin: 6px 0 0;
+
+    color: #8da4b8;
+
+    font-size: 13px;
+}
+
+.container {
+
+    max-width: 1400px;
+
+    margin: auto;
+
+    padding: 20px;
+}
+
+
+/* =====================================================
+   CONNECTION
+===================================================== */
+
+.connection {
+
+    display: flex;
+
+    gap: 10px;
+
+    align-items: center;
+
+    flex-wrap: wrap;
+
+    margin-bottom: 18px;
+}
+
+button {
+
+    border: none;
+
+    padding: 12px 18px;
+
+    border-radius: 8px;
+
+    background: #2563eb;
+
+    color: white;
+
+    font-weight: bold;
+
+    cursor: pointer;
+}
+
+button:hover {
+
+    background: #1d4ed8;
+}
+
+button:disabled {
+
+    opacity: 0.5;
+
+    cursor: not-allowed;
+}
+
+.connection-status {
+
+    padding: 10px 15px;
+
+    border-radius: 8px;
+
+    background: #101d28;
+
+    color: #8da4b8;
+
+    font-size: 13px;
+}
+
+
+/* =====================================================
+   CARDS
+===================================================== */
+
+.card {
+
+    background: #0c1823;
+
+    border:
+        1px solid #203040;
+
+    border-radius: 14px;
+
+    padding: 18px;
+}
+
+.title {
+
+    color: #8da4b8;
+
+    font-size: 11px;
+
+    text-transform: uppercase;
+
+    letter-spacing: 1.5px;
+
+    margin-bottom: 8px;
+}
+
+
+/* =====================================================
+   TOP
+===================================================== */
+
+.top {
+
+    display: grid;
+
+    grid-template-columns:
+        1fr 1fr;
+
+    gap: 18px;
+}
+
+.status {
+
+    font-size: 28px;
+
+    font-weight: bold;
+}
+
+.waiting {
+    color: #94a3b8;
+}
+
+.safe {
+    color: #4ade80;
+}
+
+.caution {
+    color: #facc15;
+}
+
+.danger {
+    color: #fb7185;
+}
+
+
+/* =====================================================
+   METRICS
+===================================================== */
+
+.metrics {
+
+    display: grid;
+
+    grid-template-columns:
+        repeat(4, 1fr);
+
+    gap: 15px;
+
+    margin-top: 18px;
+}
+
+.metric {
+
+    background: #0c1823;
+
+    border:
+        1px solid #203040;
+
+    border-radius: 14px;
+
+    padding: 17px;
+}
+
+.metric-value {
+
+    font-size: 27px;
+
+    font-weight: bold;
+}
+
+.metric-label {
+
+    margin-top: 5px;
+
+    font-size: 11px;
+
+    color: #8da4b8;
+}
+
+
+/* =====================================================
+   ROAD
+===================================================== */
+
+.road-card {
+
+    margin-top: 18px;
+}
+
+.road {
+
+    position: relative;
+
+    height: 430px;
+
+    overflow: hidden;
+
+    border-radius: 14px;
+
+    background: #09131d;
+
+    border:
+        1px solid #263746;
+}
+
+
+/* straight road */
+
+.road-straight {
+    display: none;
+
+    position: absolute;
+
+    left: 28%;
+
+    right: 5%;
+
+    top: 150px;
+
+    height: 120px;
+
+    background: #242e37;
+
+    border-top:
+        4px solid #3b4650;
+
+    border-bottom:
+        4px solid #3b4650;
+}
+
+
+/* center road line */
+
+.center-line {
+    display: none;
+
+    position: absolute;
+
+    left: 28%;
+
+    right: 5%;
+
+    top: 207px;
+
+    height: 4px;
+
+    background:
+
+        repeating-linear-gradient(
+
+            to right,
+
+            #d5dce2 0px,
+
+            #d5dce2 30px,
+
+            transparent 30px,
+
+            transparent 60px
+
+        );
+}
+
+
+/* blind turn: keep the road surface the same width as the straight road */
+.blind-turn {
+    display: none;
+    position: absolute;
+    left: 5%;
+    right: auto;
+    top: 150px;
+    width: 31%;
+    height: 120px;
+    box-sizing: border-box;
+    /* A 120px road surface matches .road-straight height. */
+    border-left: 120px solid #242e37;
+    border-top: 120px solid #242e37;
+    border-radius: 130px 0 0 0;
+    filter: drop-shadow(0 5px 5px rgba(0,0,0,.25));
+}
+
+
+/* Continuous SVG road: equal width around the bend and along the straight */
+.road-layout {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    pointer-events: none;
+}
+.road-edge {
+    fill: none;
+    stroke: #3b4650;
+    stroke-width: 126;
+    stroke-linecap: butt;
+    stroke-linejoin: round;
+}
+.road-surface {
+    fill: none;
+    stroke: #242e37;
+    stroke-width: 120;
+    stroke-linecap: butt;
+    stroke-linejoin: round;
+}
+.road-markings {
+    fill: none;
+    stroke: #d5dce2;
+    stroke-width: 4;
+    stroke-dasharray: 30 30;
+    stroke-linecap: butt;
+    opacity: .98;
+}
+
+/* sensors */
+
+.sensor {
+
+    position: absolute;
+
+    top: 110px;
+
+    height: 200px;
+
+    width: 3px;
+
+    background: #38bdf8;
+
+    z-index: 5;
+}
+
+.s1 {
+
+    left: 75%;
+}
+
+.s2 {
+
+    left: 48%;
+}
+
+.sensor-text {
+
+    position: absolute;
+
+    top: 82px;
+
+    color: #38bdf8;
+
+    font-weight: bold;
+
+    font-size: 13px;
+
+    z-index: 8;
+}
+
+.s1-text {
+
+    left: calc(75% - 25px);
+}
+
+.s2-text {
+
+    left: calc(48% - 25px);
+}
+
+.blind-text {
+
+    position: absolute;
+
+    top: 82px;
+
+    left: 8%;
+
+    right: auto;
+
+    color: #facc15;
+
+    font-weight: bold;
+
+    font-size: 13px;
+}
+
+
+/* =====================================================
+   CAR
+===================================================== */
+
+.car {
+
+    position: absolute;
+
+    left: 88%;
+
+    top: 192px;
+
+    width: 58px;
+
+    height: 34px;
+
+    background: #2563eb;
+
+    border-radius:
+        9px 12px 8px 8px;
+
+    z-index: 20;
+
+    opacity: 0;
+
+    transition:
+
+        left 0.5s linear,
+
+        top 0.5s linear,
+
+        transform 0.5s linear,
+
+        opacity 0.3s;
+
+    box-shadow:
+        0 0 15px
+        rgba(37,99,235,0.5);
+}
+
+.car.visible {
+
+    opacity: 1;
+}
+
+.car::before {
+
+    content: "";
+
+    position: absolute;
+
+    width: 34px;
+
+    height: 17px;
+
+    left: 12px;
+
+    top: -11px;
+
+    background: #60a5fa;
+
+    border-radius:
+        9px 9px 2px 2px;
+}
+
+.car::after {
+    content: "🚗";
+    position: absolute;
+    left: 13px;
+    top: -4px;
+    font-size: 26px;
+    transform: scaleX(-1);
+}
+
+
+
+/* =====================================================
+   SENSOR DATA
+===================================================== */
+
+.sensor-grid {
+
+    display: grid;
+
+    grid-template-columns:
+        1fr 1fr;
+
+    gap: 18px;
+
+    margin-top: 18px;
+}
+
+.distance {
+
+    font-size: 32px;
+
+    font-weight: bold;
+}
+
+.valid {
+
+    color: #4ade80;
+}
+
+.invalid {
+
+    color: #64748b;
+}
+
+
+/* =====================================================
+   ALERT
+===================================================== */
+
+.alert {
+
+    margin-top: 18px;
+
+    padding: 18px;
+
+    background: #0c1823;
+
+    border:
+        1px solid #203040;
+
+    border-radius: 14px;
+}
+
+.alert-text {
+
+    font-size: 20px;
+
+    font-weight: bold;
+}
+
+
+/* =====================================================
+   LOG
+===================================================== */
+
+.log {
+
+    margin-top: 18px;
+
+    height: 170px;
+
+    overflow-y: auto;
+
+    padding: 12px;
+
+    background: #050c12;
+
+    border:
+        1px solid #203040;
+
+    border-radius: 12px;
+
+    font-family: monospace;
+
+    font-size: 12px;
+
+    color: #9fb4c7;
+}
+
+.log div {
+
+    margin-bottom: 5px;
+}
+
+
+/* =====================================================
+   RESPONSIVE
+===================================================== */
+
+@media(max-width:900px) {
+
+    .top {
+
+        grid-template-columns: 1fr;
+    }
+
+    .metrics {
+
+        grid-template-columns:
+            1fr 1fr;
+    }
+
+}
+
+@media(max-width:600px) {
+
+    .metrics {
+
+        grid-template-columns: 1fr;
+    }
+
+    .sensor-grid {
+
+        grid-template-columns: 1fr;
+    }
+
+}
+
+
+/* ===== Enhanced visual layer ===== */
+:root {
+  --accent: #38bdf8;
+  --panel-glow: rgba(56,189,248,.12);
+}
+body {
+  background:
+    radial-gradient(ellipse at 12% 0%, rgba(14,165,233,.17), transparent 35%),
+    radial-gradient(ellipse at 90% 12%, rgba(168,85,247,.12), transparent 32%),
+    #050b14;
+}
+header {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(115deg, #071827 0%, #102b49 58%, #15112d 100%);
+  box-shadow: 0 12px 38px rgba(0,0,0,.22);
+}
+header::after {
+  content: "";
+  position: absolute;
+  width: 260px; height: 260px;
+  right: -70px; top: -150px;
+  border: 1px solid rgba(125,211,252,.22);
+  border-radius: 50%;
+  box-shadow: 0 0 0 24px rgba(125,211,252,.035), 0 0 0 50px rgba(125,211,252,.025);
+  pointer-events: none;
+}
+header h1 { color: #f4fbff; text-shadow: 0 0 22px rgba(56,189,248,.24); }
+.container { position: relative; z-index: 1; }
+.card, .metric {
+  background: linear-gradient(145deg, rgba(17,34,51,.96), rgba(8,20,32,.98));
+  border-color: rgba(125,170,205,.2);
+  box-shadow: 0 10px 28px rgba(0,0,0,.18), inset 0 1px rgba(255,255,255,.025);
+  transition: border-color .25s, transform .25s, box-shadow .25s;
+}
+.card:hover, .metric:hover {
+  border-color: rgba(56,189,248,.42);
+  box-shadow: 0 12px 32px rgba(0,0,0,.24), 0 0 22px rgba(56,189,248,.055);
+}
+.metric { position: relative; overflow: hidden; }
+.metric::before {
+  content: ""; position: absolute; inset: 0 auto 0 0; width: 3px;
+  background: linear-gradient(180deg, #38bdf8, #8b5cf6);
+}
+.metric-value { letter-spacing: -.7px; }
+button {
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  box-shadow: 0 7px 20px rgba(37,99,235,.2);
+  transition: transform .18s, filter .18s;
+}
+button:hover { filter: brightness(1.14); transform: translateY(-1px); }
+.connection-status { border: 1px solid rgba(125,170,205,.14); }
+.road {
+  background:
+    radial-gradient(ellipse at 50% 50%, rgba(14,165,233,.06), transparent 60%),
+    #07111c;
+  box-shadow: inset 0 0 45px rgba(0,0,0,.3);
+}
+.road-straight, .blind-turn {
+    display: none; filter: drop-shadow(0 5px 5px rgba(0,0,0,.25)); }
+.sensor { box-shadow: 0 0 12px rgba(56,189,248,.7); }
+.sensor-text, .blind-text { text-shadow: 0 0 12px currentColor; }
+.car { filter: drop-shadow(0 0 12px rgba(59,130,246,.55)); }
+.alert { border-left: 4px solid #38bdf8; }
+.log { border-color: rgba(125,170,205,.18); }
+
+/* Full-screen safety light: pointer-events stay off so the dashboard remains usable. */
+#safetyFlash {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .22s ease, visibility .22s ease;
+  background: transparent;
+}
+#safetyFlash.active { opacity: 1; visibility: visible; }
+#safetyFlash.safe { background: rgba(34,197,94,.20); }
+#safetyFlash.caution { background: rgba(250,204,21,.24); }
+#safetyFlash.danger {
+  background: rgba(239,30,54,.34);
+  animation: dangerScreenPulse .72s steps(2, end) infinite;
+}
+.safety-banner {
+  width: min(720px, 94vw);
+  padding: clamp(22px, 4vw, 42px);
+  border: 2px solid rgba(255,255,255,.55);
+  border-radius: 28px;
+  text-align: center;
+  color: white;
+  background: rgba(3,10,20,.91);
+  box-shadow: 0 20px 90px rgba(0,0,0,.5), 0 0 55px currentColor;
+  backdrop-filter: blur(12px);
+  transform: scale(.96);
+  transition: transform .2s ease;
+}
+#safetyFlash.active .safety-banner { transform: scale(1); }
+.safety-icon { font-size: clamp(42px, 8vw, 76px); line-height: 1.1; margin-bottom: 10px; }
+.safety-heading { font-size: clamp(30px, 6vw, 64px); font-weight: 900; letter-spacing: 2px; }
+.safety-subtitle { margin-top: 10px; font-size: clamp(14px, 2.4vw, 21px); color: #e2e8f0; }
+.safety-detail { margin-top: 16px; font-size: 12px; color: #cbd5e1; letter-spacing: 1px; text-transform: uppercase; }
+#safetyFlash.safe .safety-banner { border-color: #4ade80; color: #4ade80; }
+#safetyFlash.caution .safety-banner { border-color: #fde047; color: #fde047; }
+#safetyFlash.danger .safety-banner { border-color: #fb7185; color: #fb7185; }
+@keyframes dangerScreenPulse {
+  0%, 100% { background: rgba(239,30,54,.20); }
+  50% { background: rgba(239,30,54,.48); }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+
+
+
+/* MULTI-TAB NAVIGATION */
+.tab-nav{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 22px;padding:10px;background:linear-gradient(135deg,#0d1c2b,#101a2b);border:1px solid #263b52;border-radius:16px;box-shadow:0 12px 35px #0003;position:sticky;top:8px;z-index:20;backdrop-filter:blur(14px)}
+.tab-btn{flex:1;min-width:135px;padding:12px 15px;border:1px solid #2a4058;border-radius:11px;background:#101f30;color:#a9bfd4;cursor:pointer;font-weight:800;letter-spacing:.3px;transition:all .2s ease}
+.tab-btn:hover{border-color:#38bdf8;color:#fff;transform:translateY(-1px)}
+.tab-btn.active{background:linear-gradient(135deg,#0ea5e9,#2563eb);color:white;border-color:#38bdf8;box-shadow:0 0 22px #0ea5e955}
+.tab-panel{animation:tabIn .24s ease}
+.tab-panel[hidden]{display:none!important}
+@keyframes tabIn{from{opacity:.3;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+.info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
+.info-tile{padding:20px;border:1px solid #263b52;border-radius:16px;background:linear-gradient(145deg,#102235,#0b1623);box-shadow:0 12px 28px #0002}
+.info-tile .emoji{font-size:28px;margin-bottom:12px}
+.info-tile h3{margin:0 0 8px;color:#7dd3fc}
+.info-tile p{color:#9bb0c5;line-height:1.6;margin:0}
+.tab-heading{margin:4px 0 16px;font-size:21px;letter-spacing:.3px}
+@media(max-width:600px){.tab-nav{position:static}.tab-btn{min-width:calc(50% - 6px);font-size:12px;padding:11px 8px}.container{padding:13px}}
+
+
+/* Official project landing banner */
+.project-hero{position:relative;overflow:hidden;padding:26px 28px;margin:18px 0 20px;border:1px solid #24435c;border-radius:20px;background:radial-gradient(circle at 85% 20%,#0ea5e933,transparent 34%),linear-gradient(120deg,#0b1b2b,#0a1220 72%);box-shadow:0 18px 50px #0003}
+.project-hero:after{content:"";position:absolute;width:210px;height:210px;border:1px solid #38bdf833;border-radius:50%;right:-55px;top:-100px;box-shadow:0 0 0 24px #38bdf80b,0 0 0 48px #38bdf808;pointer-events:none}
+.hero-kicker{color:#38bdf8;text-transform:uppercase;font-size:11px;font-weight:900;letter-spacing:2px}
+.project-hero h2{font-size:clamp(24px,3vw,38px);margin:10px 0 8px;max-width:850px;line-height:1.12}
+.project-hero p{color:#b6c8d9;line-height:1.65;max-width:850px;margin:0}
+.hero-pills{display:flex;gap:8px;flex-wrap:wrap;margin-top:17px}.hero-pills span{font-size:11px;font-weight:800;color:#d8efff;border:1px solid #2b4b64;background:#10243a;padding:7px 10px;border-radius:999px}
+.project-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:16px 0 24px}.project-mini{padding:16px;border:1px solid #24394d;border-radius:15px;background:linear-gradient(145deg,#101f30,#0b1521)}.project-mini .mini-icon{font-size:23px}.project-mini h3{margin:8px 0 6px;font-size:14px}.project-mini p{margin:0;color:#94abc0;font-size:12px;line-height:1.6}
+.architecture{display:flex;align-items:stretch;gap:8px;flex-wrap:wrap;margin:16px 0}.arch-node{flex:1;min-width:130px;border:1px solid #2a4861;background:#0e2031;border-radius:12px;padding:14px;text-align:center}.arch-node strong{display:block;color:#7dd3fc;font-size:13px;margin-bottom:5px}.arch-node span{font-size:11px;color:#a9bed1;line-height:1.5}.arch-arrow{align-self:center;color:#38bdf8;font-weight:900;font-size:22px}.small-note{font-size:12px;line-height:1.65;color:#8fa8bd}
+@media(max-width:700px){.project-hero{padding:20px}.project-grid{grid-template-columns:1fr}.arch-arrow{transform:rotate(90deg);width:100%;text-align:center}}
+
+</style>
+
+</head>
+
+
+<body>
+
+<div id="safetyFlash" aria-live="assertive" aria-atomic="true">
+  <div class="safety-banner">
+    <div class="safety-icon" id="safetyIcon">🟢</div>
+    <div class="safety-heading" id="safetyHeading">SAFE</div>
+    <div class="safety-subtitle" id="safetySubtitle">Normal speed permitted</div>
+    <div class="safety-detail" id="safetyDetail">Travel-time assessment</div>
+  </div>
+</div>
+
+
+
+<header>
+
+<h1>
+BLINDTURN // ECS SAFETY CONSOLE
+</h1>
+
+<p>
+Smart Blind-Turn Vehicle Safety System
+· REAL ROAD ESP32 TELEMETRY
+</p>
+
+</header>
+
+
+<div class="container">
+
+<section class="project-hero" aria-labelledby="project-title">
+  <div class="hero-kicker">ECS Engineering Project · Smart Road Safety</div>
+  <h2 id="project-title">BLINDTURN <span style="color:#38bdf8">Safety System</span></h2>
+  <p>A prototype designed to improve awareness at blind road turns by detecting an approaching vehicle with roadside ultrasonic sensors, assessing its movement, and presenting clear safety alerts to the vehicle-side system and monitoring dashboard.</p>
+  <div class="hero-pills"><span>ESP32-Based Prototype</span><span>Ultrasonic Sensing</span><span>Live Telemetry Dashboard</span><span>Prepared by Chamarthy Ramdev</span></div>
+</section>
+<div class="project-grid" aria-label="Project highlights">
+  <article class="project-mini"><div class="mini-icon">📡</div><h3>Detect</h3><p>Roadside sensors monitor the defined detection zone and send readings from the Road ESP32.</p></article>
+  <article class="project-mini"><div class="mini-icon">🧠</div><h3>Assess</h3><p>The prototype applies configured detection and travel-time thresholds to classify the dashboard risk state.</p></article>
+  <article class="project-mini"><div class="mini-icon">🚦</div><h3>Alert</h3><p>Visual safety states help communicate SAFE, CAUTION or DANGER status during demonstration.</p></article>
+</div>
+
+<!-- =====================================================
+     CONNECTION
+===================================================== -->
+
+<div class="connection">
+
+<button id="connectBtn">
+CONNECT ROAD ESP32
+</button>
+
+<button id="disconnectBtn"
+        disabled>
+DISCONNECT
+</button>
+
+<div id="connectionStatus"
+     class="connection-status">
+
+Not connected
+
+</div>
+
+</div>
+
+<nav class="tab-nav" role="tablist" aria-label="Dashboard sections">
+  <button class="tab-btn active" type="button" role="tab" aria-selected="true" data-tab="overview">◈ Overview + Live Road</button>
+  <button class="tab-btn" type="button" role="tab" aria-selected="false" data-tab="sensors">⌁ Sensors &amp; Alerts</button>
+  <button class="tab-btn" type="button" role="tab" aria-selected="false" data-tab="logs">▤ Event Log</button>
+  <button class="tab-btn" type="button" role="tab" aria-selected="false" data-tab="about">ⓘ System Info</button>
+  <button class="tab-btn" type="button" role="tab" aria-selected="false" data-tab="manual">▣ How to Use</button>
+</nav>
+
+<section class="tab-panel" id="tab-overview" role="tabpanel" data-panel="overview">
+<h2 class="tab-heading">Overview &amp; live road <span style="color:#38bdf8">/ real-time safety console</span></h2>
+<!-- =====================================================
+     TOP STATUS
+===================================================== -->
+
+<div class="top">
+
+
+<div class="card">
+
+<div class="title">
+System Status
+</div>
+
+<div id="status"
+     class="status waiting">
+
+WAITING
+
+</div>
+
+<p id="message"
+   style="color:#8da4b8">
+
+Connect the Road ESP32 and wait for sensor data.
+
+</p>
+
+</div>
+
+
+<div class="card">
+
+<div class="title">
+Vehicle Position
+</div>
+
+<div id="position"
+     class="status">
+
+—
+
+</div>
+
+<p style="color:#8da4b8">
+
+Road A · S1 = 10 cm · S2 = 30 cm
+
+</p>
+
+</div>
+
+
+</div>
+
+
+<!-- =====================================================
+     METRICS
+===================================================== -->
+
+<div class="metrics">
+
+
+<div class="metric">
+
+<div id="speedCms"
+     class="metric-value">
+
+0.00
+
+</div>
+
+<div class="metric-label">
+SPEED · cm/s
+</div>
+
+</div>
+
+
+<div class="metric">
+
+<div id="speedMs"
+     class="metric-value">
+
+0.000
+
+</div>
+
+<div class="metric-label">
+SPEED · m/s
+</div>
+
+</div>
+
+
+<div class="metric">
+
+<div id="timeTaken"
+     class="metric-value">
+
+0.00
+
+</div>
+
+<div class="metric-label">
+S1 → S2 TIME · sec
+</div>
+
+</div>
+
+
+<div class="metric">
+
+<div id="risk"
+     class="metric-value">
+
+—
+
+</div>
+
+<div class="metric-label">
+RISK
+</div>
+
+</div>
+
+
+</div>
+
+
+
+<h2 class="tab-heading" style="margin-top:28px">Live road animation <span style="color:#38bdf8">/ S1 → S2 → blind turn</span></h2>
+<div class="card road-card">
+
+<div class="title">
+LIVE ROAD ANIMATION
+</div>
+
+
+<div class="road">
+
+
+<!-- Continuous road surface: one SVG path keeps the width consistent
+     through the bend and adds a dashed centre line around the curve. -->
+<svg class="road-layout" viewBox="0 0 1300 430" preserveAspectRatio="none" aria-label="Road with a continuous curved blind turn and centre markings">
+  <path class="road-edge" d="M 130 330 L 130 270 C 130 215 165 190 220 190 L 1240 190" />
+  <path class="road-surface" d="M 130 330 L 130 270 C 130 215 165 190 220 190 L 1240 190" />
+  <path class="road-markings" d="M 130 330 L 130 270 C 130 215 165 190 220 190 L 1240 190" />
+</svg>
+
+
+<div class="sensor s1">
+</div>
+
+<div class="sensor-text s1-text">
+S1 · 10 cm
+</div>
+
+
+<div class="sensor s2">
+</div>
+
+<div class="sensor-text s2-text">
+S2 · 30 cm
+</div>
+
+
+<div class="blind-text">
+BLIND TURN
+</div>
+
+
+<div id="car"
+     class="car">
+</div>
+
+
+</div>
+
+</div>
+</section>
+
+
+
+<section class="tab-panel" id="tab-sensors" role="tabpanel" data-panel="sensors" hidden>
+<h2 class="tab-heading">Sensor health & safety alerts</h2>
+<!-- =====================================================
+     SENSOR VALUES
+===================================================== -->
+
+<div class="sensor-grid">
+
+
+<div class="card">
+
+<div class="title">
+REAL SENSOR 1
+</div>
+
+<div id="s1"
+     class="distance">
+
+—
+
+</div>
+
+<div id="s1State"
+     class="invalid">
+
+WAITING
+
+</div>
+
+<p style="color:#8da4b8">
+Valid only when distance &lt; 18 cm
+</p>
+
+</div>
+
+
+<div class="card">
+
+<div class="title">
+REAL SENSOR 2
+</div>
+
+<div id="s2"
+     class="distance">
+
+—
+
+</div>
+
+<div id="s2State"
+     class="invalid">
+
+WAITING
+
+</div>
+
+<p style="color:#8da4b8">
+Valid only when distance &lt; 18 cm
+</p>
+
+</div>
+
+
+</div>
+
+
+<!-- =====================================================
+     ALERT
+===================================================== -->
+
+<div class="alert">
+
+<div class="title">
+Safety Alert
+</div>
+
+<div id="alert"
+     class="alert-text">
+
+SYSTEM READY
+
+</div>
+
+</div>
+
+
+</section>
+
+<section class="tab-panel" id="tab-logs" role="tabpanel" data-panel="logs" hidden>
+<h2 class="tab-heading">System event log</h2>
+<!-- =====================================================
+     LOG
+===================================================== -->
+
+<div id="log"
+     class="log">
+
+<div>
+[SYSTEM] Dashboard started
+</div>
+
+<div>
+[SYSTEM] Waiting for real Road ESP32 telemetry
+</div>
+
+<div>
+[SYSTEM] Valid detection: &lt; 18 cm
+</div>
+
+<div>
+[SYSTEM] S1 → 10 cm
+</div>
+
+<div>
+[SYSTEM] S2 → 30 cm
+</div>
+
+</div>
+</section>
+
+<section class="tab-panel" id="tab-about" role="tabpanel" data-panel="about" hidden>
+  <h2 class="tab-heading">About the Smart Blind-Turn Safety System</h2>
+  <div class="info-grid">
+    <article class="info-tile"><div class="emoji">📡</div><h3>Live sensing</h3><p>Two ultrasonic sensors detect a vehicle in sequence. The dashboard reads newline-delimited JSON telemetry from the Road ESP32 over USB serial.</p></article>
+    <article class="info-tile"><div class="emoji">🧭</div><h3>Road geometry</h3><p>Road A is represented as a 60 cm model. S1 is at 10 cm, S2 at 30 cm, and the blind-turn section begins around 40 cm.</p></article>
+    <article class="info-tile"><div class="emoji">🚦</div><h3>Risk indication</h3><p>Travel-time assessment: under 3 seconds indicates danger; 3 to under 5 seconds indicates caution; 5 seconds or more indicates safe in this prototype.</p></article>
+    <article class="info-tile"><div class="emoji">🛡️</div><h3>Safety note</h3><p>Screen colours and alerts are dashboard indications. Physical automatic braking only works when compatible Car ESP32 firmware, motor-driver wiring, and a verified control path are implemented and tested.</p></article>
+  </div>
+  <div class="card" style="margin-top:18px"><div class="title">System architecture / data flow</div>
+    <div class="architecture" aria-label="System architecture flow">
+      <div class="arch-node"><strong>1 · Road sensors</strong><span>HC-SR04 Sensor 1 + Sensor 2</span></div><div class="arch-arrow" aria-hidden="true">→</div>
+      <div class="arch-node"><strong>2 · Road ESP32</strong><span>Reads distance and sends newline-delimited JSON</span></div><div class="arch-arrow" aria-hidden="true">→</div>
+      <div class="arch-node"><strong>3 · Dashboard</strong><span>USB Serial · 115200 baud · status and risk display</span></div>
+    </div>
+    <p class="small-note">Separate vehicle-side components include the Car ESP32, LCD, motor driver and motors. The web dashboard does not itself command the motor driver unless a separate, compatible and verified control path is implemented.</p>
+  </div>
+  <div class="card" style="margin-top:18px"><div class="title">Telemetry and prototype rules</div><p style="color:#9bb0c5;line-height:1.7">Only sensor readings strictly below 18 cm are treated as valid detections. Values at or above 18 cm are ignored for detection and risk calculations. The dashboard expects newline-delimited JSON from the Road ESP32 at 115200 baud.</p></div>
+  <div class="card" style="margin-top:18px"><div class="title">Testing and validation</div><p style="color:#9bb0c5;line-height:1.7">Use the live dashboard and Event Log to observe incoming readings, connection state and alert transitions during controlled bench testing. Record measured results from your own tests before reporting accuracy, response time or braking performance; no unverified performance figures are claimed here.</p></div>
+  <div class="card" style="margin-top:18px"><div class="title">Prototype scope and limitations</div><p style="color:#9bb0c5;line-height:1.7">This is an educational prototype using a small road model and ultrasonic sensors. Real-road deployment would require further engineering, validation, fail-safe design and environmental testing. Full-screen alerts are visual indicators, not proof of physical braking.</p></div>
+</section>
+
+<section class="tab-panel" id="tab-manual" role="tabpanel" data-panel="manual" hidden>
+  <h2 class="tab-heading">How to use <span style="color:#38bdf8">/ user manual</span></h2>
+  <div class="info-grid">
+    <article class="info-tile"><div class="emoji">🔌</div><h3>1. Connect the Road ESP32</h3><p>Connect the Road ESP32 to your laptop with a USB data cable. Open this site in a supported desktop browser such as Chrome or Edge, then click <strong>CONNECT ROAD ESP32</strong> and select the correct serial port.</p></article>
+    <article class="info-tile"><div class="emoji">📡</div><h3>2. Check sensor readings</h3><p>Open <strong>Sensors &amp; Alerts</strong> to view Sensor 1 and Sensor 2 readings. In this prototype, only readings strictly below 18 cm count as valid detections.</p></article>
+    <article class="info-tile"><div class="emoji">🚘</div><h3>3. Watch the road</h3><p>Return to <strong>Overview + Live Road</strong>. The dashboard visualises the vehicle moving from S1 to S2 and toward the blind turn when valid telemetry is received.</p></article>
+    <article class="info-tile"><div class="emoji">🚦</div><h3>4. Understand the alerts</h3><p><strong>Green / SAFE:</strong> 5 seconds or more. <strong>Yellow / CAUTION:</strong> 3 seconds to under 5 seconds. <strong>Flashing red / DANGER:</strong> under 3 seconds. Full-screen visual alerts clear after about 4.5 seconds.</p></article>
+    <article class="info-tile"><div class="emoji">🧾</div><h3>5. Review activity</h3><p>Open <strong>Event Log</strong> to inspect connection and system messages. If the readings do not update, check the USB data cable, selected serial port, firmware baud rate (115200), and that another app is not using the port.</p></article>
+    <article class="info-tile"><div class="emoji">🛡️</div><h3>Safety and limitations</h3><p>This web dashboard reads USB serial data from a locally connected Road ESP32. A public website opened on another device will not automatically receive that USB data. Screen alerts alone do not stop the vehicle; physical braking requires a compatible, verified Car ESP32 command path and motor-control firmware. Test with wheels lifted and keep hands clear of moving parts.</p></article>
+  </div>
+  <div class="card" style="margin-top:18px"><div class="title">Public website / demonstration checklist</div><ol style="color:#9bb0c5;line-height:1.85;padding-left:22px"><li>Deploy the extracted folder with <code>index.html</code> at the root of a static host such as Netlify.</li><li>Open the published URL in desktop Chrome or Edge and check all five tabs.</li><li>For live readings, connect the Road ESP32 by USB to the same computer and grant serial-port permission.</li><li>For a remote judge demo, prepare a recorded demonstration or implement a secure remote telemetry service; public hosting alone cannot forward local USB readings.</li><li>Test the motor-control system separately with wheels lifted and the area clear. Do not rely on a dashboard overlay as a physical emergency stop.</li></ol></div>
+  <div class="card" style="margin-top:18px;text-align:center;padding:24px">
+    <div class="title">PROJECT CREDIT</div>
+    <h2 style="margin:10px 0;color:#eaf6ff;font-size:25px">Prepared by Chamarthy Ramdev</h2>
+    <p style="color:#9bb0c5;margin:0">Smart Blind Safety Turn System · ECS Project</p>
+  </div>
+</section>
+
+<footer style="text-align:center;color:#8198ad;font-size:12px;padding:22px 10px 10px;letter-spacing:.4px">SMART BLIND SAFETY TURN SYSTEM · Prepared by <strong style="color:#c7d9e8">Chamarthy Ramdev</strong></footer>
+
+</div>
+
+<script>
+
+// Accessible tab navigation; existing telemetry and safety logic remains unchanged.
+document.querySelectorAll('.tab-btn').forEach(button => {
+  button.addEventListener('click', () => {
+    const target = button.dataset.tab;
+    document.querySelectorAll('.tab-btn').forEach(tab => {
+      const active = tab === button;
+      tab.classList.toggle('active', active);
+      tab.setAttribute('aria-selected', String(active));
+    });
+    document.querySelectorAll('[data-panel]').forEach(panel => {
+      panel.hidden = panel.dataset.panel !== target;
+    });
+  });
+});
+
+/* =====================================================
+   FIXED ECS PARAMETERS
+===================================================== */
+
+const VALID_LIMIT = 18.0;
+
+const S1_POSITION = 10.0;
+
+const S2_POSITION = 30.0;
+
+const SENSOR_SEPARATION = 20.0;
+
+
+/* =====================================================
+   SERIAL
+===================================================== */
+
+let port = null;
+
+let reader = null;
+
+let keepReading = false;
+
+
+/* =====================================================
+   VEHICLE STATE
+===================================================== */
+
+let s1Detected = false;
+
+let s2Detected = false;
+
+let t1 = null;
+
+
+/* =====================================================
+   HTML ELEMENTS
+===================================================== */
+
+const connectBtn =
+    document.getElementById("connectBtn");
+
+const disconnectBtn =
+    document.getElementById("disconnectBtn");
+
+const connectionStatus =
+    document.getElementById("connectionStatus");
+
+const status =
+    document.getElementById("status");
+
+const message =
+    document.getElementById("message");
+
+const position =
+    document.getElementById("position");
+
+const car =
+    document.getElementById("car");
+
+const s1Element =
+    document.getElementById("s1");
+
+const s2Element =
+    document.getElementById("s2");
+
+const s1State =
+    document.getElementById("s1State");
+
+const s2State =
+    document.getElementById("s2State");
+
+const speedCms =
+    document.getElementById("speedCms");
+
+const speedMs =
+    document.getElementById("speedMs");
+
+const timeTaken =
+    document.getElementById("timeTaken");
+
+const risk =
+    document.getElementById("risk");
+
+const alert =
+    document.getElementById("alert");
+
+const log =
+    document.getElementById("log");
+
+
+/* =====================================================
+   LOG
+===================================================== */
+
+function addLog(text)
+{
+
+    const line =
+        document.createElement("div");
+
+    line.textContent =
+        "[" +
+        new Date().toLocaleTimeString() +
+        "] " +
+        text;
+
+    log.appendChild(line);
+
+    log.scrollTop =
+        log.scrollHeight;
+
+}
+
+
+/* =====================================================
+   VALID DISTANCE
+===================================================== */
+
+function validDistance(value)
+{
+
+    return (
+
+        typeof value === "number" &&
+
+        Number.isFinite(value) &&
+
+        value > 0 &&
+
+        value < VALID_LIMIT
+
+    );
+
+}
+
+
+/* =====================================================
+   MOVE CAR
+===================================================== */
+
+function carAtS1() {
+    car.classList.add("visible");
+    car.style.left = "72%";
+    car.style.top = "192px";
+    car.style.transform = "scaleX(-1) rotate(0deg)";
+    position.textContent = "S1 · 10 cm";
+}
+
+function carAtS2() {
+    car.classList.add("visible");
+    car.style.left = "45%";
+    car.style.top = "192px";
+    car.style.transform = "scaleX(-1) rotate(0deg)";
+    position.textContent = "S2 · 30 cm";
+}
+
+function carAtBlindTurn() {
+    car.classList.add("visible");
+    car.style.left = "5%";
+    car.style.top = "245px";
+    car.style.transform = "scaleX(-1) rotate(25deg)";
+    position.textContent = "BLIND TURN";
+}
+
+
+function hideCar()
+{
+
+    car.classList.remove("visible");
+
+    car.style.left = "88%";
+
+    car.style.top = "192px";
+
+    car.style.transform =
+        "scaleX(-1) rotate(0deg)";
+
+    position.textContent =
+        "—";
+
+}
+
+
+/* =====================================================
+   TELEMETRY TIMESTAMP
+   Prefer ESP32 millis() when provided.
+   Otherwise use browser monotonic time for compatibility
+   with packets containing only s1Cm and s2Cm.
+===================================================== */
+
+function getTelemetryTime(data)
+{
+    if (
+        typeof data.tMs === "number" &&
+        Number.isFinite(data.tMs)
+    ) {
+        return data.tMs;
+    }
+
+    return performance.now();
+}
+
+
+/* =====================================================
+   PROCESS REAL SENSOR DATA
+===================================================== */
+
+function processTelemetry(data)
+{
+
+    const s1 =
+        data.s1Cm;
+
+    const s2 =
+        data.s2Cm;
+
+
+    /* -----------------------------------------------
+       S1
+    ------------------------------------------------ */
+
+    if (validDistance(s1))
+    {
+
+        s1Element.textContent =
+            s1.toFixed(1) + " cm";
+
+        s1State.textContent =
+            "VALID VEHICLE";
+
+        s1State.className =
+            "valid";
+
+
+        /*
+           First S1 detection
+        */
+
+        if (!s1Detected)
+        {
+
+            s1Detected = true;
+
+            s2Detected = false;
+
+            /*
+               IMPORTANT:
+               Use ROAD ESP millis() time,
+               not browser arrival time.
+            */
+
+            t1 = getTelemetryTime(data);
+
+
+            carAtS1();
+
+
+            status.textContent =
+                "VEHICLE AT S1";
+
+            status.className =
+                "status caution";
+
+
+            message.textContent =
+                "Vehicle detected at S1. Timer started.";
+
+            alert.textContent =
+                "VEHICLE ENTERED S1";
+
+
+            addLog(
+                "REAL S1 detected: " +
+                s1.toFixed(2) +
+                " cm"
+            );
+
+        }
+
+    }
+    else
+    {
+
+        s1Element.textContent =
+            "—";
+
+        s1State.textContent =
+            "NO VALID VEHICLE";
+
+        s1State.className =
+            "invalid";
+
+    }
+
+
+    /* -----------------------------------------------
+       S2
+    ------------------------------------------------ */
+
+    if (validDistance(s2))
+    {
+
+        s2Element.textContent =
+            s2.toFixed(1) + " cm";
+
+        s2State.textContent =
+            "VALID VEHICLE";
+
+        s2State.className =
+            "valid";
+
+
+        /*
+           Vehicle reached S2
+        */
+
+        if (s1Detected && !s2Detected)
+        {
+
+            s2Detected = true;
+
+
+            const t2 =
+                getTelemetryTime(data);
+
+
+            const elapsedMs =
+                t2 - t1;
+
+
+            if (elapsedMs > 0)
+            {
+
+                const seconds =
+                    elapsedMs / 1000.0;
+
+
+                /*
+                   LOCKED CALCULATION
+
+                   20 cm / actual
+                   S1→S2 time
+                */
+
+                const calculatedSpeed =
+                    SENSOR_SEPARATION /
+                    seconds;
+
+
+                const calculatedMS =
+                    calculatedSpeed /
+                    100.0;
+
+
+                timeTaken.textContent =
+                    seconds.toFixed(2);
+
+
+                speedCms.textContent =
+                    calculatedSpeed.toFixed(2);
+
+
+                speedMs.textContent =
+                    calculatedMS.toFixed(3);
+
+
+                carAtS2();
+
+
+                status.textContent =
+                    "VEHICLE AT S2";
+
+                status.className =
+                    "status caution";
+
+
+                message.textContent =
+                    "S2 detected. Speed calculated from real S1→S2 timing.";
+
+                alert.textContent =
+                    "S2 DETECTED · SPEED CALCULATED";
+
+
+                addLog(
+                    "REAL S2 detected: " +
+                    s2.toFixed(2) +
+                    " cm"
+                );
+
+
+                addLog(
+                    "TIME: " +
+                    seconds.toFixed(3) +
+                    " s"
+                );
+
+
+                addLog(
+                    "SPEED: " +
+                    calculatedSpeed.toFixed(2) +
+                    " cm/s"
+                );
+
+
+                // Risk is determined by measured S1 -> S2 time.
+                // Do not let an older/different ESP32 risk value overwrite it.
+                showRiskFromTravelTime(seconds);
+
+
+                /*
+                   Move into blind turn
+                   after S2.
+                */
+
+                setTimeout(
+                    carAtBlindTurn,
+                    900
+                );
+
+            }
+
+        }
+
+    }
+    else
+    {
+
+        s2Element.textContent =
+            "—";
+
+        s2State.textContent =
+            "NO VALID VEHICLE";
+
+        s2State.className =
+            "invalid";
+
+    }
+
+
+    /* -----------------------------------------------
+       VEHICLE CLEAR
+    ------------------------------------------------ */
+
+    if (
+        !validDistance(s1) &&
+        !validDistance(s2) &&
+        s1Detected
+    )
+    {
+
+        /*
+           Don't instantly clear.
+           Wait briefly so the animation
+           can finish.
+        */
+
+        setTimeout(
+            clearVehicle,
+            1200
+        );
+
+    }
+
+}
+
+
+/* =====================================================
+   RISK FROM S1 -> S2 TRAVEL TIME
+   < 3 seconds: DANGER
+   3 to < 5 seconds: CAUTION
+   >= 5 seconds: SAFE
+===================================================== */
+
+
+/* Full-screen visual safety state. Physical braking requires matching ESP32 firmware. */
+let safetyFlashTimer = null;
+let lastSafetyFlashState = null;
+function setSafetyFlash(state, heading, subtitle, detail) {
+    const flash = document.getElementById("safetyFlash");
+    if (!flash) return;
+
+    // Sensor telemetry arrives repeatedly. Show the overlay only when the risk state
+    // changes, so incoming packets cannot keep restarting the 4.5-second timer.
+    if (state === lastSafetyFlashState) return;
+    lastSafetyFlashState = state;
+    if (safetyFlashTimer) clearTimeout(safetyFlashTimer);
+
+    flash.className = "";
+    flash.classList.add("active", state);
+    document.getElementById("safetyIcon").textContent =
+        state === "safe" ? "🟢" : state === "caution" ? "🟡" : "🚨";
+    document.getElementById("safetyHeading").textContent = heading;
+    document.getElementById("safetySubtitle").textContent = subtitle;
+    document.getElementById("safetyDetail").textContent = detail;
+
+    safetyFlashTimer = setTimeout(() => {
+        flash.className = "";
+        safetyFlashTimer = null;
+    }, 4500);
+}
+function clearSafetyFlash() {
+    const flash = document.getElementById("safetyFlash");
+    if (safetyFlashTimer) clearTimeout(safetyFlashTimer);
+    safetyFlashTimer = null;
+    lastSafetyFlashState = null;
+    if (flash) flash.className = "";
+}
+
+function showRiskFromTravelTime(seconds)
+{
+    if (
+        typeof seconds !== "number" ||
+        !Number.isFinite(seconds) ||
+        seconds <= 0
+    ) {
+        risk.textContent = "WAITING";
+        risk.className = "metric-value waiting";
+        status.textContent = "WAITING";
+        status.className = "status waiting";
+        message.textContent = "Waiting for valid S1-S2 timing.";
+        alert.textContent = "NO VALID TRAVEL TIME";
+        clearSafetyFlash();
+        return;
+    }
+
+    if (seconds < 3)
+    {
+        risk.textContent = "DANGER";
+        risk.className = "metric-value danger";
+        status.textContent = "DANGER";
+        status.className = "status danger";
+        message.textContent = "S1-S2 travel time below 3 seconds.";
+        alert.textContent = "DANGER — STOP VEHICLE";
+        addLog("TIME-BASED RISK: DANGER");
+        setSafetyFlash("danger", "DANGER — STOP", "Critical risk detected. Stop the vehicle immediately.", "RED ALERT · FLASHING WARNING");
+    }
+    else if (seconds < 5)
+    {
+        risk.textContent = "CAUTION";
+        risk.className = "metric-value caution";
+        status.textContent = "CAUTION";
+        status.className = "status caution";
+        message.textContent = "S1-S2 travel time is 3 to under 5 seconds.";
+        alert.textContent = "CAUTION — REDUCE SPEED";
+        addLog("TIME-BASED RISK: CAUTION");
+        setSafetyFlash("caution", "CAUTION", "Reduce speed and approach the blind turn carefully.", "YELLOW ALERT · REDUCE SPEED");
+    }
+    else
+    {
+        risk.textContent = "SAFE";
+        risk.className = "metric-value safe";
+        status.textContent = "SAFE";
+        status.className = "status safe";
+        message.textContent = "S1-S2 travel time is 5 seconds or more.";
+        alert.textContent = "SAFE — NORMAL SPEED";
+        addLog("TIME-BASED RISK: SAFE");
+        setSafetyFlash("safe", "SAFE", "Normal speed permitted by the dashboard assessment.", "GREEN SIGNAL · NORMAL SPEED");
+    }
+}
+
+
+/* =====================================================
+   RISK FROM ROAD ESP
+===================================================== */
+
+function showRisk(riskValue)
+{
+
+    if (riskValue === 2)
+    {
+
+        risk.textContent =
+            "DANGER";
+
+        risk.className =
+            "metric-value danger";
+
+        status.textContent =
+            "DANGER";
+
+        status.className =
+            "status danger";
+
+        message.textContent =
+            "Critical risk reported by Road ESP.";
+
+        alert.textContent =
+            "⚠ DANGER · STOP";
+
+
+    }
+    else if (riskValue === 1)
+    {
+
+        risk.textContent =
+            "CAUTION";
+
+        risk.className =
+            "metric-value caution";
+
+        status.textContent =
+            "CAUTION";
+
+        status.className =
+            "status caution";
+
+        message.textContent =
+            "Caution condition reported by Road ESP.";
+
+        alert.textContent =
+            "⚠ CAUTION";
+
+
+    }
+    else
+    {
+
+        risk.textContent =
+            "SAFE";
+
+        risk.className =
+            "metric-value safe";
+
+        status.textContent =
+            "SAFE";
+
+        status.className =
+            "status safe";
+
+        message.textContent =
+            "Safe condition reported by Road ESP.";
+
+        alert.textContent =
+            "✓ SAFE";
+
+    }
+
+}
+
+
+/* =====================================================
+   RESULT PACKET
+===================================================== */
+
+function processResult(data)
+{
+
+    if (
+        typeof data.speedCms === "number"
+    )
+    {
+
+        speedCms.textContent =
+            data.speedCms.toFixed(2);
+
+        speedMs.textContent =
+            data.speedMs.toFixed(3);
+
+    }
+
+
+    // The dashboard's risk indicator is based on measured S1 -> S2 time.
+    // Keep the ESP32 result in the log without overwriting that risk.
+    addLog(
+        "ROAD ESP RESULT received"
+    );
+
+}
+
+
+/* =====================================================
+   CLEAR VEHICLE
+===================================================== */
+
+function clearVehicle()
+{
+
+    s1Detected = false;
+
+    s2Detected = false;
+
+    t1 = null;
+
+
+    hideCar();
+
+
+    status.textContent =
+        "WAITING";
+
+    status.className =
+        "status waiting";
+
+
+    position.textContent =
+        "—";
+
+
+    message.textContent =
+        "Waiting for real roadside sensor data.";
+
+
+    alert.textContent =
+        "SYSTEM READY";
+
+
+    addLog(
+        "Vehicle cleared"
+    );
+
+}
+
+
+/* =====================================================
+   PROCESS JSON
+===================================================== */
+
+function processLine(line)
+{
+
+    line =
+        line.trim();
+
+
+    if (!line)
+        return;
+
+
+    /*
+       Ignore normal Road ESP
+       Serial Monitor text.
+    */
+
+    if (
+        !line.startsWith("{") ||
+        !line.endsWith("}")
+    )
+    {
+        return;
+    }
+
+
+    try
+    {
+
+        const data =
+            JSON.parse(line);
+
+
+        if (
+            data.event === "RESULT"
+        )
+        {
+
+            processResult(data);
+
+        }
+        else if (
+            "s1Cm" in data ||
+            "s2Cm" in data
+        )
+        {
+
+            processTelemetry(data);
+
+        }
+
+    }
+    catch(error)
+    {
+
+        addLog(
+            "JSON parse error"
+        );
+
+    }
+
+}
+
+
+/* =====================================================
+   SERIAL READER
+===================================================== */
+
+async function readSerial()
+{
+
+    const decoder =
+        new TextDecoder();
+
+    let buffer = "";
+
+
+    while (
+        port &&
+        port.readable &&
+        keepReading
+    )
+    {
+
+        reader =
+            port.readable.getReader();
+
+
+        try
+        {
+
+            while (true)
+            {
+
+                const {
+                    value,
+                    done
+                } =
+                    await reader.read();
+
+
+                if (done)
+                    break;
+
+
+                if (value)
+                {
+
+                    buffer +=
+                        decoder.decode(
+                            value,
+                            {
+                                stream: true
+                            }
+                        );
+
+
+                    const lines =
+                        buffer.split("\n");
+
+
+                    buffer =
+                        lines.pop();
+
+
+                    for (
+                        const line
+                        of lines
+                    )
+                    {
+
+                        processLine(
+                            line
+                        );
+
+                    }
+
+                }
+
+            }
+
+        }
+        catch(error)
+        {
+
+            console.error(error);
+
+        }
+        finally
+        {
+
+            reader.releaseLock();
+
+        }
+
+    }
+
+}
+
+
+/* =====================================================
+   CONNECT
+===================================================== */
+
+connectBtn.addEventListener(
+    "click",
+    async () =>
+    {
+
+        try
+        {
+
+            if (
+                !("serial" in navigator)
+            )
+            {
+
+                alert(
+                    "Web Serial is not supported. Use Google Chrome or Microsoft Edge."
+                );
+
+                return;
+
+            }
+
+
+            port =
+                await navigator.serial.requestPort();
+
+
+            await port.open({
+                baudRate: 115200
+            });
+
+
+            connectionStatus.textContent =
+                "ROAD ESP32 CONNECTED · 115200";
+
+            connectionStatus.style.color =
+                "#4ade80";
+
+
+            connectBtn.disabled =
+                true;
+
+            disconnectBtn.disabled =
+                false;
+
+
+            addLog(
+                "Road ESP32 connected"
+            );
+
+
+            keepReading =
+                true;
+
+
+            readSerial();
+
+        }
+        catch(error)
+        {
+
+            console.error(error);
+
+            addLog(
+                "Connection cancelled/failed"
+            );
+
+        }
+
+    }
+);
+
+
+/* =====================================================
+   DISCONNECT
+===================================================== */
+
+disconnectBtn.addEventListener(
+    "click",
+    async () =>
+    {
+
+        keepReading =
+            false;
+
+
+        try
+        {
+
+            if (reader)
+            {
+
+                await reader.cancel();
+
+                reader.releaseLock();
+
+                reader = null;
+
+            }
+
+
+            if (port)
+            {
+
+                await port.close();
+
+            }
+
+        }
+        catch(error)
+        {
+
+            console.error(error);
+
+        }
+
+
+        port = null;
+
+
+        connectBtn.disabled =
+            false;
+
+        disconnectBtn.disabled =
+            true;
+
+
+        connectionStatus.textContent =
+            "Not connected";
+
+        connectionStatus.style.color =
+            "#8da4b8";
+
+
+        addLog(
+            "Road ESP32 disconnected"
+        );
+
+    }
+);
+
+</script>
+
+</body>
+
+</html>
